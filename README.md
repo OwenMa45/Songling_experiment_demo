@@ -1,2 +1,2 @@
-# Trajectory
-A beginning of the trajectory idea
+# Songling demo for chemical experiment
+A small demo development within a few weeks
