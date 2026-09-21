@@ -1,0 +1,46 @@
+paths:
+  sim_python: /mnt/cpfs/users/mrq/emboddied/mujoco/bin/python
+  openpi_root: /mnt/cpfs/users/mrq/emboddied/openpi
+  train_python: /mnt/cpfs/users/mrq/emboddied/openpi/.venv/bin/python
+  checkpoint: /mnt/cpfs/users/mrq/emboddied/openpi/checkpoints/pi05_base
+  piper_root: third_party/piper_ros
+  output: outputs
+simulation:
+  timestep: 0.002
+  control_hz: 20
+  image_size: 224
+  timeout: 60
+  settle_seconds: 1.5
+  joint_speed: 0.8
+  gripper_speed: 0.04
+  seed: 42
+  # Calibrate these poses to the actual installation before real deployment.
+  holder_base: [0, -0.30, 0]
+  squeezer_base: [0, 0.30, 0]
+  holder_heading: 0.7
+  squeezer_heading: -0.7
+  tube_center: [0.35, 0, 0.14]
+  tube_radius: 0.014
+  tip_height: 0.22
+  bulb_diameter: 0.024
+  alignment_tolerance: 0.009
+  randomization:
+    position_m: 0.004
+    light_fraction: 0.15
+    camera_m: 0.005
+    flow_fraction: 0.10
+    delay_steps: 2
+fluid:
+  initial_volume_ml: 2.0
+  drop_volume_ml: 0.05
+  compression_threshold: 0.12
+  displacement_ml: 0.12
+  relaxation_seconds: 0.10
+  release_seconds: 0.18
+training:
+  repo_id: local/piper_titration_train
+  batch_size: 1
+  action_horizon: 16
+  steps: 10000
+  experiment: titration_lora
+  seed: 42
