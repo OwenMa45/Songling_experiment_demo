@@ -38,18 +38,25 @@ def main():
     if target == ROOT or target == source or target in ROOT.parents or target in source.parents:
         parser.error('Environment must be a separate directory, not a project or its ancestor.')
     marker=target/'.piper-training-env.json'
+    python=target/'bin/python'
     expected={'project':str(ROOT),'openpi_root':str(source),'revision':revision}
+    env=dict(os.environ,UV_PROJECT_ENVIRONMENT=str(target),GIT_LFS_SKIP_SMUDGE='1')
+    env.pop('VIRTUAL_ENV',None)
     if target.exists():
         if not marker.is_file() or json.loads(marker.read_text()) != expected:
             parser.error('Refusing to synchronize an existing unmanaged directory. Choose a new --env path.')
+        if not python.is_file():
+            # Recover only the exact incomplete directory created by an earlier
+            # version of this script. Never clear an unmanaged/non-empty path.
+            if {entry.name for entry in target.iterdir()} != {marker.name}:
+                parser.error('Managed environment is incomplete but contains unexpected files; choose a new --env path.')
+            run(['uv','venv','--python','3.11','--clear',target],env=env)
+            marker.write_text(json.dumps(expected,indent=2))
     else:
-        target.mkdir(parents=True)
+        run(['uv','venv','--python','3.11',target],env=env)
         marker.write_text(json.dumps(expected,indent=2))
-    env=dict(os.environ,UV_PROJECT_ENVIRONMENT=str(target),GIT_LFS_SKIP_SMUDGE='1')
-    env.pop('VIRTUAL_ENV',None)
     # --locked checks consistency and never rewrites the upstream lockfile.
-    run(['uv','sync','--project',source,'--locked','--python','3.11'],env=env)
-    python=target/'bin/python'
+    run(['uv','sync','--project',source,'--locked','--python',python],env=env)
     # All runtime dependencies already come from openpi's lock; do not re-resolve them.
     run(['uv','pip','install','--python',python,'--no-deps','-e',ROOT],env=env)
     run(['uv','pip','check','--python',python],env=env)
