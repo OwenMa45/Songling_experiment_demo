@@ -1,0 +1,21 @@
+{
+  "paths": {
+    "raw_data_root": "/mnt/cpfs/users/mrq/emboddied/Songling_experiment_demo/data/四项任务数据",
+    "sim_python": "/mnt/cpfs/users/mrq/emboddied/mujoco/bin/python",
+    "openpi_root": "/mnt/cpfs/users/mrq/emboddied/openpi",
+    "train_python": "/mnt/cpfs/users/mrq/emboddied/openpi/.venv/bin/python",
+    "checkpoint": "/mnt/cpfs/users/mrq/emboddied/openpi/checkpoints/pi05_base",
+    "piper_root": "third_party/piper_ros",
+    "output": "outputs/chemical",
+    "dataset_receipt": "outputs/chemical/dataset_receipt.json"
+  },
+  "robot": {"schema": "piper-chemical-single-v1", "action_dim": 7, "control_hz": 30},
+  "training": {
+    "repo_id": "local/piper_chemical_train",
+    "batch_size": 1,
+    "action_horizon": 16,
+    "steps": 10000,
+    "experiment": "chemical_lora",
+    "seed": 42
+  }
+}

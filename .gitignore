@@ -223,3 +223,15 @@ __marimo__/
 /checkpoints/
 /configs/local.yaml
 *.mp4
+
+# Other zips
+*.zip
+
+# real machine files
+/piper_capture_starter/
+
+# Local MuJoCo Python environment (keep setup scripts and scene sources tracked)
+/.venv-sim/
+/.venv-train/
+/.venv-*/
+/mujoco/

@@ -1,0 +1,10 @@
+{
+  "description": "Example only. Replace group with the actual collection session/scene group. Current recording will correctly fail preflight.",
+  "episodes": [
+    {
+      "path": "../piper_capture_starter/data/beaker_move/episode_20260924_182612",
+      "task_id": "beaker_move",
+      "group": "20260924_session_to_be_verified"
+    }
+  ]
+}

@@ -25,19 +25,24 @@ def configuration(cfg, steps=None):
     from openpi import transforms as t
     from openpi.models.pi0_config import Pi0Config
     from openpi.training import config as c, weight_loaders
-    from .transforms import Inputs, Outputs
+    single = "robot" in cfg
+    if single:
+        from .single_arm import Inputs, Outputs
+    else:
+        from .transforms import Inputs, Outputs
 
     @dataclasses.dataclass(frozen=True)
     class PiperData(c.DataConfigFactory):
         def create(self, assets_dirs, model_config):
-            delta_mask = t.make_bool_mask(6, -1, 6, -1)
+            delta_mask = t.make_bool_mask(6, -1) if single else t.make_bool_mask(6, -1, 6, -1)
             mapping = t.Group(inputs=[Inputs()], outputs=[Outputs()]).push(inputs=[t.DeltaActions(delta_mask)], outputs=[t.AbsoluteActions(delta_mask)])
             return dataclasses.replace(self.create_base_config(assets_dirs, model_config), repack_transforms=t.Group(inputs=[t.RepackTransform({"state": "state", "image": "image", "wrist_image": "wrist_image", "actions": "actions", "prompt": "prompt"})]), data_transforms=mapping, model_transforms=c.ModelTransformFactory()(model_config), prompt_from_task=True)
 
     training = cfg["training"]
     model = Pi0Config(pi05=True, action_horizon=training["action_horizon"], paligemma_variant="gemma_2b_lora", action_expert_variant="gemma_300m_lora")
     output = Path(cfg["paths"]["output"])
-    return c.TrainConfig(name="pi05_piper_lora", exp_name=training["experiment"], model=model, freeze_filter=model.get_freeze_filter(), ema_decay=None, data=PiperData(repo_id=training["repo_id"]), weight_loader=weight_loaders.CheckpointWeightLoader(str(Path(cfg["paths"]["checkpoint"])/"params")), batch_size=training["batch_size"], num_workers=0, num_train_steps=steps or training["steps"], save_interval=1000, log_interval=1 if steps else 100, wandb_enabled=False, assets_base_dir=str(output/"training_assets"), checkpoint_base_dir=str(output/"checkpoints"), seed=training["seed"], policy_metadata={"action_schema": "piper-titration-v1", "action_dim": 14, "control_hz": cfg["simulation"]["control_hz"]})
+    metadata = {"action_schema":cfg["robot"]["schema"], "action_dim":7, "control_hz":cfg["robot"]["control_hz"]} if single else {"action_schema":"piper-titration-v1","action_dim":14,"control_hz":cfg["simulation"]["control_hz"]}
+    return c.TrainConfig(name="pi05_piper_chemical_lora" if single else "pi05_piper_lora", exp_name=training["experiment"], model=model, freeze_filter=model.get_freeze_filter(), ema_decay=None, data=PiperData(repo_id=training["repo_id"]), weight_loader=weight_loaders.CheckpointWeightLoader(str(Path(cfg["paths"]["checkpoint"])/"params")), batch_size=training["batch_size"], num_workers=0, num_train_steps=steps or training["steps"], save_interval=1000, log_interval=1 if steps else 100, wandb_enabled=False, assets_base_dir=str(output/"training_assets"), checkpoint_base_dir=str(output/"checkpoints"), seed=training["seed"], policy_metadata=metadata)
 
 
 def module(path, name):
@@ -56,8 +61,15 @@ def execute(cfg, mode, steps=None, checkpoint=None, port=8000):
         original = json.loads(saved.read_text(encoding="utf-8"))
         cfg = copy.deepcopy(cfg)
         cfg["training"] = original["training"]
-        cfg["simulation"]["control_hz"] = original["simulation"]["control_hz"]
+        if "robot" in original:
+            cfg["robot"] = original["robot"]
+        else:
+            cfg.pop("robot",None)
+            cfg["simulation"] = original["simulation"]
     root = attach(cfg)
+    if "robot" in cfg and mode in ("norms", "train"):
+        from .capture_dataset import validate_receipt
+        validate_receipt(cfg)
     config = configuration(cfg, steps)
     if mode == "norms":
         # Use the official computation, registering only within this process.

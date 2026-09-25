@@ -1,0 +1,14 @@
+{
+  "robot": "single_piper_x",
+  "state_action_order": ["q1", "q2", "q3", "q4", "q5", "q6", "gripper_width"],
+  "units": ["rad", "rad", "rad", "rad", "rad", "rad", "m"],
+  "planned_accepted_episodes_per_task": 200,
+  "split_per_task": {"train": 160, "validation": 20, "test": 20},
+  "split_group": "collection_session_and_initial_scene",
+  "tasks": [
+    {"id": "beaker_move", "priority": "required", "prompt": "Pick up the empty beaker and place it upright in the marked target area.", "success": "Beaker released upright inside the target area without dropping it."},
+    {"id": "test_tube_pour_return", "priority": "required", "prompt": "Pick up the test tube, pour its liquid into the designated container, and return it to the rack.", "success": "Liquid transferred into the designated container without visible spill and test tube returned stably to its original slot."},
+    {"id": "dropper_aspirate_dispense", "priority": "exploratory", "prompt": "Aspirate liquid with the dropper and dispense it into the designated container.", "success": "Visible liquid uptake followed by dispensing into the designated container; grasping or moving alone is insufficient."},
+    {"id": "dropper_flip_place", "priority": "exploratory", "prompt": "Pick up the inverted dropper from the rack, turn it over, and place it into the designated rack hole.", "success": "Dropper rotated into the intended orientation and released stably in the designated hole."}
+  ]
+}

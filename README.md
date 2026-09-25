@@ -1,66 +1,60 @@
-# 双 PiPER 化学滴定仿真
+# 单臂 PiPER 化学实验 π0.5 微调
 
-MuJoCo 双臂演示、示范采集与回放、LeRobot 数据转换，以及 π0.5 JAX LoRA 训练/推理适配。
-固定试管，持管臂握住预装液滴管，夹捏臂挤压胶头，独立计数模块达到目标后停止。
+本项目负责已经采集的真机遥操数据检查、JSONL/JPEG 到 LeRobot 转换，以及 π0.5 JAX LoRA 微调和策略服务。执行实验的是单台从臂；遥操主臂不是策略的第二条机械臂。
 
-**当前状态：代码已实现；本地通过纯逻辑、数据接口及运动学测试。MuJoCo 动力学、EGL 渲染和 GPU 训练尚未实测，不能据此宣称已达到 90% 成功率或可直接部署真机。**
+**当前数据尚未通过训练检查，尚未完成微调或生成权重。** 本地提供的回合有 703 帧，action 全为空，反馈来源未验证，且缺少一张图像。详见 [实际数据审查](docs/capture_audit_20260924.md)。
 
-## 服务器开始运行
+## 2+2 任务
 
-先初始化外部模型与 openpi 的固定版本：
+| 优先级 | 任务 | 计划合格示范 |
+| --- | --- | --- |
+| 必做 | 抓取烧杯并移动 | 200 |
+| 必做 | 取试管、倒液、放回 | 200 |
+| 探索 | 滴管取液、滴液 | 200 |
+| 探索 | 取倒扣滴管、反转、放入试管架孔 | 200 |
+
+任务定义在 [chemical_tasks.json](configs/chemical_tasks.json)。200 条是采集目标，不是效果保证；先用少量先导数据打通真实动作记录与训练。每任务目标划分 160/20/20，实际按采集场次和场景组隔离，比例可能有所偏离。
+
+## 先检查数据
+
+```bash
+python scripts/audit_capture.py piper_capture_starter/data \
+  --decode-images --output outputs/data_audit/audit.json
+```
+
+图像解码需要 Pillow。该命令不会连接或控制机械臂，不修改原始记录。缺少真实控制目标时，不用相邻实测状态补造 action。
+
+## 单臂训练入口
+
+默认配置为 [chemical_server.json](configs/chemical_server.json)，延用先前远程环境路径。状态和动作是六个关节加夹爪总开度，单位 rad/m，默认 30 Hz。π0.5 内部仍保持 32 维以兼容基础权重，模型接口仅使用前 7 维。
 
 ```bash
 git submodule update --init --recursive
-python scripts/doctor.py --render
+python scripts/doctor.py
+# 复制示例，填写实际数据路径、任务 ID、采集场次/场景分组。
+# 当前示例数据预检会失败，这是预期结果。
+bash scripts/run.sh capture-plan configs/capture_selection.example.json
 ```
 
-诊断不会安装包或下载模型。默认使用：
-
-- 仿真：`/mnt/cpfs/users/mrq/emboddied/mujoco/bin/python`
-- openpi：`/mnt/cpfs/users/mrq/emboddied/openpi`
-- 训练 Python：`/mnt/cpfs/users/mrq/emboddied/openpi/.venv/bin/python`
-- JAX 权重：`/mnt/cpfs/users/mrq/emboddied/openpi/checkpoints/pi05_base`
-
-依赖缺失时，按 [远程运行指南](docs/remote.md) 安装；所有默认值集中在 [服务器配置](configs/server.yaml)。
+只有物理来源、实际控制动作、图像和成功标记通过检查后，才执行：
 
 ```bash
-bash scripts/run.sh build
-bash scripts/run.sh demo --target 3 --output outputs/demo_001 --record --video
-bash scripts/run.sh replay outputs/demo_001/episode
-bash scripts/run.sh evaluate --episodes 100 --output outputs/expert_eval
-```
-
-每次运行使用新的输出目录，不覆盖既有数据。`demo` 失败返回非零退出码；`evaluate` 只有完成至少 100 个固定场景回合且成功率达到 90% 才返回零。
-
-## 数据与训练
-
-```bash
-# 可先采集少量回合检查数据，随后增加规模；只有成功回合进入训练集。
-bash scripts/run.sh evaluate --episodes 20 --randomized --record --output outputs/demonstrations
-bash scripts/run.sh convert outputs/demonstrations --repo-id local/piper_titration
+bash scripts/run.sh convert-captures /path/to/reviewed_selection.json
 bash scripts/run.sh norms
 bash scripts/run.sh train --steps 1
-```
-
-20 回合用于数据链路冒烟验证，并非充分的训练数据量；少于 100 回合的 `evaluate` 不报告验收通过。
-正式训练应更换配置中的 `training.experiment`，避免与单步验证目录冲突。
-
-```bash
+# 修改 training.experiment 后运行正式训练，避免覆盖单步验证。
 bash scripts/run.sh train
-# 将路径替换成实际训练生成的 step 目录
-bash scripts/run.sh serve --checkpoint outputs/checkpoints/pi05_piper_lora/titration_lora/9999
-# 在另一个终端执行
-bash scripts/run.sh demo --target 3 --output outputs/policy_demo --video --policy-uri ws://127.0.0.1:8000
+bash scripts/run.sh serve --checkpoint /path/to/trained/step
 ```
 
-详细依赖、权重准备和单卡运行安排见 [远程运行指南](docs/remote.md)。
-数据字段、仿真假设和真机校准要求见 [接口与建模说明](docs/interfaces.md)。
-外部代码由 [third_party](third_party/README.md) 中的 submodule 管理。
+转换只读原始记录，并生成数据集审查凭据；归一化和训练会检查凭据、数据集标识与频率。训练前需要完整的 JAX pi05_base 权重及匹配 openpi 版本的 Linux GPU 环境。本项目不提供实际 CAN 控制器。
 
-## 测试
+操作细节和数据约定见 [单臂训练指南](docs/single_arm_training.md)。旧的 [双臂仿真说明](docs/legacy_dual_arm.md) 仅作历史参考，必须显式指定 `configs/server.yaml` 才能运行旧命令；不要用旧命令导入真机单臂数据。
+
+## 验证范围
 
 ```bash
-PYTHONPATH=src /mnt/cpfs/users/mrq/emboddied/mujoco/bin/python -m unittest discover -s tests -v
+PYTHONPATH=src python -m unittest discover -s tests -v
 ```
 
-纯逻辑测试不需要 GPU；MuJoCo 未安装时会跳过动力学测试。完整验证还需运行 EGL 诊断、带视频演示、回放及 100 回合评估。
+已验证数据拒绝规则、7 维映射、因果重采样和分组隔离逻辑。尚未在真实合格数据上运行 LeRobot 导出或 GPU 训练，也没有真机策略成功率结果。数据、权重和生成文件均不纳入版本控制。

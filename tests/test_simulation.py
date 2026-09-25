@@ -11,7 +11,8 @@ class SimulationTests(unittest.TestCase):
     def make_env(self):
         from piper_titration.config import load
         from piper_titration.env import TitrationEnv
-        env = TitrationEnv(load())
+        from piper_titration.config import ROOT
+        env = TitrationEnv(load(ROOT/"configs/server.yaml"))
         self.addCleanup(env.close)
         return env
 
