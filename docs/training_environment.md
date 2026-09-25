@@ -25,7 +25,7 @@ source .venv-train/piper_env.sh
 
 脚本只重用由自身创建且来源匹配的环境；已有其他环境不被同步或清空。安装失败保留现场，修复后可重跑。若更换 openpi 来源，使用新的 `--env .venv-train-pinned`。项目中的 `.venv-*` 已被 Git 忽略。
 
-如果旧版脚本曾留下只有 `.piper-training-env.json`、没有 Python 的 `.venv-train`，新版会识别并安全重建该未完成环境，直接重跑同一条命令即可。目录内存在其他文件时脚本会停止，避免清空未知内容。
+如果旧版脚本曾留下只有 `.piper-training-env.json`、没有 Python 的 `.venv-train`，新版会先严格确认内容，仅移除这个标记和随即变空的目录，再安全重建环境。直接重跑同一条命令即可。目录内存在其他文件时脚本会停止，避免清空未知内容。
 
 后续执行 [烧杯微调流程](beaker_demo_training.md)时，保留激活文件设置的 `PIPER_TRAIN_PYTHON` 和 `PIPER_OPENPI_ROOT`，不要再次将解释器覆盖成原 `/openpi/.venv/bin/python`。`scripts/run.sh` 会使用这些环境变量。权重仍使用 `/mnt/cpfs/users/mrq/emboddied/openpi/checkpoints/pi05_base`。
 

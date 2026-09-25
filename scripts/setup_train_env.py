@@ -50,7 +50,12 @@ def main():
             # version of this script. Never clear an unmanaged/non-empty path.
             if {entry.name for entry in target.iterdir()} != {marker.name}:
                 parser.error('Managed environment is incomplete but contains unexpected files; choose a new --env path.')
-            run(['uv','venv','--python','3.11','--clear',target],env=env)
+            # uv --clear intentionally refuses a non-venv. At this point the
+            # directory is proven to contain only our marker, so remove those
+            # two exact objects and let uv create a fresh environment.
+            marker.unlink()
+            target.rmdir()
+            run(['uv','venv','--python','3.11',target],env=env)
             marker.write_text(json.dumps(expected,indent=2))
     else:
         run(['uv','venv','--python','3.11',target],env=env)
