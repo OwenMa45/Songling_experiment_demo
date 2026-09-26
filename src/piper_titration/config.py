@@ -1,6 +1,7 @@
 from pathlib import Path
 import os
 import json
+import sys
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -15,6 +16,8 @@ def load(path=None):
             cfg = yaml.safe_load(f)
     for key, value in cfg["paths"].items():
         value = os.environ.get("PIPER_" + key.upper(), value)
+        if value == "@current":
+            value = sys.executable
         p = Path(value).expanduser()
         cfg["paths"][key] = str(p if p.is_absolute() else ROOT / p)
     if "robot" in cfg:

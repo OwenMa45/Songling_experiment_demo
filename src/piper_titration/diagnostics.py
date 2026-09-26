@@ -19,15 +19,19 @@ def command(args, timeout=40, env=None):
         return {"ok": False, "error": str(exc)}
 
 
-def inspect(sim_python, train_python, openpi_root, checkpoint, piper_root, render=False):
+def inspect(sim_python, train_python, openpi_root, checkpoint, piper_root, render=False, training_only=False):
     results = {}
     for name, path in {"sim_python": sim_python, "train_python": train_python, "openpi_root": openpi_root, "checkpoint": checkpoint, "piper_root": piper_root}.items():
         results[name] = {"ok": Path(path).exists(), "path": str(path)}
     probe = "import importlib.metadata as m,json; names=%r; out={};\nfor n in names:\n try: out[n]=m.version(n)\n except m.PackageNotFoundError: out[n]=None\nprint(json.dumps(out)); raise SystemExit(any(v is None for v in out.values()))"
-    results["simulation_packages"] = command([str(sim_python), "-c", probe % ["mujoco", "numpy", "PyYAML", "imageio", "imageio-ffmpeg", "openpi-client"]])
+    if not training_only:
+        results["simulation_packages"] = command([str(sim_python), "-c", probe % ["mujoco", "numpy", "PyYAML", "imageio", "imageio-ffmpeg", "openpi-client"]])
+    results["jax_gpu"] = command([str(train_python), "-c", "import jax; d=jax.devices(); print(d); assert any(x.platform=='gpu' for x in d), 'JAX has no GPU device'"])
     results["training_packages"] = command([str(train_python), "-c", probe % ["jax", "flax", "orbax-checkpoint", "lerobot", "openpi", "PyYAML"]])
     results["gpu"] = command(["nvidia-smi", "--query-gpu=name,memory.total,driver_version", "--format=csv,noheader"])
     for name, path in (("openpi", openpi_root), ("piper_ros", piper_root)):
+        if training_only and name == "piper_ros":
+            continue
         r = command(["git", "-C", str(path), "rev-parse", "HEAD"])
         r["expected"] = PINS[name]
         r["ok"] = r["ok"] and r.get("stdout") == PINS[name]
@@ -40,6 +44,9 @@ def inspect(sim_python, train_python, openpi_root, checkpoint, piper_root, rende
         results["egl_render"] = command([str(sim_python), "-c", code], env=environ)
         model = Path(piper_root) / "src/piper_description/mujoco_model/piper_description.xml"
         results["single_arm_render"] = command([str(sim_python), "-c", "import mujoco,sys; m=mujoco.MjModel.from_xml_path(sys.argv[1]); d=mujoco.MjData(m); mujoco.mj_forward(m,d); r=mujoco.Renderer(m,128,128); r.update_scene(d); a=r.render(); assert a.shape==(128,128,3); print(m.nq,m.nu,a.shape); r.close()", str(model)], env=environ)
+    if training_only:
+        results.pop("sim_python",None)
+        results.pop("piper_root",None)
     return results
 
 

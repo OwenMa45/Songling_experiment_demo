@@ -35,6 +35,7 @@ def main():
             sub.add_argument("--repo-id", default="local/piper_chemical")
     train = commands.add_parser("train")
     train.add_argument("--steps", type=int)
+    train.add_argument("--batch-size", type=int, help="Global batch, divisible by visible JAX devices")
     train.add_argument("--experiment", help="New run name; use separate names for smoke and full training")
     sub = commands.add_parser("serve")
     sub.add_argument("--checkpoint", required=True)
@@ -44,6 +45,10 @@ def main():
         os.environ.setdefault("MUJOCO_GL", "egl")
     from .config import load
     cfg = load(args.config)
+    if args.command == "train" and args.batch_size is not None:
+        if args.batch_size < 1:
+            p.error("batch-size must be positive")
+        cfg["training"]["batch_size"] = args.batch_size
     if args.command == "train" and args.experiment:
         if any(c in args.experiment for c in "/\\") or args.experiment in (".",".."):
             p.error("experiment must be a directory name, not a path")
@@ -52,7 +57,7 @@ def main():
         p.error("This is a legacy dual-arm command. For real single-arm data use capture-plan/convert-captures. Legacy simulation requires --config configs/server.yaml.")
     if args.command == "doctor":
         from .diagnostics import inspect
-        result = inspect(**{k: cfg["paths"][k] for k in ("sim_python", "train_python", "openpi_root", "checkpoint", "piper_root")}, render=args.render)
+        result = inspect(**{k: cfg["paths"][k] for k in ("sim_python", "train_python", "openpi_root", "checkpoint", "piper_root")}, render=args.render, training_only="robot" in cfg and not args.render)
         print(json.dumps(result, indent=2))
         return int(any(not r["ok"] for r in result.values()))
     if args.command in ("capture-plan", "convert-captures"):

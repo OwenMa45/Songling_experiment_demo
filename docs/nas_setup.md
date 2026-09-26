@@ -1,3 +1,5 @@
+> 服务器已迁移至 4090 + songling Conda。路径、环境创建和运行命令以 [当前服务器说明](server_4090.md) 为准；本文旧 NAS 命令仅留作历史参考。
+
 # NAS 运行准备与人工复核边界
 
 项目：`/mnt/cpfs/users/mrq/emboddied/Songling_experiment_demo`。
