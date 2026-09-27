@@ -8,6 +8,16 @@ import sys
 from .diagnostics import command, PINS
 
 
+def validate_device_layout(batch_size, fsdp_devices, device_count):
+    for value in (batch_size, fsdp_devices, device_count):
+        if not isinstance(value, int) or isinstance(value, bool) or value < 1:
+            raise ValueError("Batch size, FSDP devices and device count must be positive integers")
+    if batch_size % device_count:
+        raise ValueError(f"Global batch {batch_size} must be divisible by {device_count} visible devices")
+    if device_count % fsdp_devices:
+        raise ValueError(f"FSDP devices {fsdp_devices} must divide {device_count} visible devices")
+
+
 def attach(cfg):
     root = Path(cfg["paths"]["openpi_root"])
     revision = command(["git", "-C", str(root), "rev-parse", "HEAD"])
@@ -42,7 +52,7 @@ def configuration(cfg, steps=None):
     model = Pi0Config(pi05=True, action_horizon=training["action_horizon"], paligemma_variant="gemma_2b_lora", action_expert_variant="gemma_300m_lora")
     output = Path(cfg["paths"]["output"])
     metadata = {"action_schema":cfg["robot"]["schema"], "action_dim":7, "control_hz":cfg["robot"]["control_hz"]} if single else {"action_schema":"piper-titration-v1","action_dim":14,"control_hz":cfg["simulation"]["control_hz"]}
-    return c.TrainConfig(name="pi05_piper_chemical_lora" if single else "pi05_piper_lora", exp_name=training["experiment"], model=model, freeze_filter=model.get_freeze_filter(), ema_decay=None, data=PiperData(repo_id=training["repo_id"]), weight_loader=weight_loaders.CheckpointWeightLoader(str(Path(cfg["paths"]["checkpoint"])/"params")), batch_size=training["batch_size"], num_workers=0, num_train_steps=steps or training["steps"], save_interval=1000, log_interval=1 if steps else 100, wandb_enabled=False, assets_base_dir=str(output/"training_assets"), checkpoint_base_dir=str(output/"checkpoints"), seed=training["seed"], policy_metadata=metadata)
+    return c.TrainConfig(name="pi05_piper_chemical_lora" if single else "pi05_piper_lora", exp_name=training["experiment"], model=model, freeze_filter=model.get_freeze_filter(), ema_decay=None, data=PiperData(repo_id=training["repo_id"]), weight_loader=weight_loaders.CheckpointWeightLoader(str(Path(cfg["paths"]["checkpoint"])/"params")), batch_size=training["batch_size"], fsdp_devices=training.get("fsdp_devices",1), num_workers=0, num_train_steps=steps or training["steps"], save_interval=1000, log_interval=1 if steps else 100, wandb_enabled=False, assets_base_dir=str(output/"training_assets"), checkpoint_base_dir=str(output/"checkpoints"), seed=training["seed"], policy_metadata=metadata)
 
 
 def module(path, name):
@@ -77,6 +87,8 @@ def execute(cfg, mode, steps=None, checkpoint=None, port=8000):
         registry._CONFIGS_DICT[config.name] = config
         module(root/"scripts/compute_norm_stats.py", "piper_openpi_norms").main(config.name)
     elif mode == "train":
+        import jax
+        validate_device_layout(config.batch_size, config.fsdp_devices, jax.device_count())
         params = Path(cfg["paths"]["checkpoint"])/"params"
         if not params.is_dir() or not any(params.iterdir()):
             raise FileNotFoundError(f"Download the complete JAX pi05_base checkpoint first: {params}")

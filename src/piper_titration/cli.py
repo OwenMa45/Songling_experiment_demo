@@ -36,6 +36,7 @@ def main():
     train = commands.add_parser("train")
     train.add_argument("--steps", type=int)
     train.add_argument("--batch-size", type=int, help="Global batch, divisible by visible JAX devices")
+    train.add_argument("--fsdp-devices", type=int, help="Number of devices per model shard group (default 1)")
     train.add_argument("--experiment", help="New run name; use separate names for smoke and full training")
     sub = commands.add_parser("serve")
     sub.add_argument("--checkpoint", required=True)
@@ -45,6 +46,10 @@ def main():
         os.environ.setdefault("MUJOCO_GL", "egl")
     from .config import load
     cfg = load(args.config)
+    if args.command == "train" and args.fsdp_devices is not None:
+        if args.fsdp_devices < 1:
+            p.error("fsdp-devices must be positive")
+        cfg["training"]["fsdp_devices"] = args.fsdp_devices
     if args.command == "train" and args.batch_size is not None:
         if args.batch_size < 1:
             p.error("batch-size must be positive")

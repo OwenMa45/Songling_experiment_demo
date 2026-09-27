@@ -167,7 +167,14 @@ def validate_receipt(cfg):
         raise ValueError("Dataset and robot contracts differ")
     train = receipt["splits"]["train"]
     if train["repo_id"]!=cfg["training"]["repo_id"]:
-        raise ValueError("Configured training dataset does not match audited export")
+        raise ValueError(
+            "Configured training dataset does not match audited export: "
+            f"training.repo_id={cfg['training']['repo_id']!r}, "
+            f"receipt train.repo_id={train['repo_id']!r}, receipt={path.resolve()}. "
+            "Select the configuration used for conversion (PIPER_CONFIG), or set "
+            "training.repo_id to the intended exported dataset. Do not edit the receipt "
+            "or reconvert/delete data merely to bypass this check."
+        )
     from lerobot.common.datasets.lerobot_dataset import HF_LEROBOT_HOME
     for split in receipt["splits"].values():
         actual = (HF_LEROBOT_HOME/split["repo_id"]).resolve()

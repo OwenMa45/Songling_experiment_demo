@@ -60,6 +60,22 @@ bash scripts/run.sh --gpu-list 4,5,6,7 train --steps 1 --batch-size 4 --experime
 bash scripts/run.sh --gpu-list 4,5,6,7 train --batch-size 4 --experiment beaker_demo_4gpu
 ```
 
-使用一个 JAX 进程，不使用 torchrun。当前 fsdp_devices=1，四卡为数据并行、每卡模型副本；不能理解为四卡显存自动合并成 96GB。batch-size 是全局批量，须能被可见设备数整除。单卡或四卡性能、显存占用尚未实测；先完成单步检查，不宣称四卡一定更快。
+使用一个 JAX 进程，不使用 torchrun。默认 fsdp_devices=1，四卡为数据并行、每卡模型副本；不能理解为四卡显存自动合并成 96GB。batch-size 是全局批量，须能被可见设备数整除。可显式传入 `--fsdp-devices 4` 启用四卡参数分片，设备数必须能被此值整除。
+
+## 2026-09-27 单卡初始化 OOM
+
+用户日志已证明数据、归一化资产读取及 12.5 GiB 基础参数恢复成功，但初始化训练状态时额外 1.12 GiB 分配失败，尚未完成梯度更新。ROCm/TPU 后端探测提示不是本次根因。日志未记录显存比例或同时运行的进程，不能断言仅由默认比例导致。
+
+确认目标卡没有其他大显存任务后，可先在新进程中设置 `XLA_PYTHON_CLIENT_MEM_FRACTION=0.9`、`XLA_PYTHON_CLIENT_PREALLOCATE=true` 重试单卡，并使用新的 experiment。不要重新转换数据或计算 norms。参考 [JAX 显存说明](https://docs.jax.dev/en/latest/gpu_memory_allocation.html)。
+
+仍不足时，同步代码后尝试授权卡上的 FSDP：
+
+```bash
+XLA_PYTHON_CLIENT_MEM_FRACTION=0.9 XLA_PYTHON_CLIENT_PREALLOCATE=true \
+bash scripts/run.sh --gpu-list 4,5,6,7 train --steps 1 \
+  --batch-size 4 --fsdp-devices 4 --experiment beaker_smoke_fsdp4
+```
+
+FSDP 减少可分片的参数和训练状态占用，但固定版本上游初始化仍以 replicated 输入加载基础参数，因此不保证消除初始化峰值。当前仅通过布局校验测试，多卡运行需要服务器实测。保留 PIPER_CONFIG、PIPER_DATASET_RECEIPT、HF_LEROBOT_HOME 与成功 norms 时一致；已有失败目录保留，重试用新名称。
 
 已有 dataset receipt 或训练目录不会被覆盖；重试需选择新实验名，重新导出需同时更改 repo-id 与配置/receipt 路径。
