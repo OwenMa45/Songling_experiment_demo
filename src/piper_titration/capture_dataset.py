@@ -3,6 +3,7 @@ from collections import defaultdict
 import hashlib
 import importlib.util
 import json
+import sys
 from pathlib import Path
 import numpy as np
 from .single_arm import SCHEMA, ORDER
@@ -26,19 +27,27 @@ def plan_dataset(manifest, seed=42, train_only=False):
         raise ValueError("Selection manifest must contain reviewed episodes")
     tasks = {t["id"]: t for t in json.loads((ROOT/"configs/chemical_tasks.json").read_text(encoding="utf-8"))["tasks"]}
     seen, content_seen, checked, failures = set(), set(), [], []
-    for entry in entries:
+    for number, entry in enumerate(entries,1):
         path = (manifest.parent/entry["path"]).resolve()
+        print(f"[capture-plan {number}/{len(entries)}] Checking {path}",file=sys.stderr,flush=True)
         if path in seen:
             raise ValueError(f"Duplicate episode path: {path}")
         seen.add(path)
         if not (path/"metadata.json").is_file() or not (path/"samples.jsonl").is_file():
             failures.append({"path":str(path),"blockers":["episode_files_missing"]})
+            print("  REJECT: episode_files_missing",file=sys.stderr,flush=True)
             continue
         if entry.get("task_id") not in tasks or not isinstance(entry.get("group"), str) or not entry["group"].strip():
             raise ValueError("Each episode requires a known task_id and a collection-session/scene group")
-        report = audit_episode(path)
+        try:
+            report = audit_episode(path)
+        except (OSError,ValueError,KeyError,TypeError) as exc:
+            failures.append({"path":str(path),"blockers":[f"audit_error: {type(exc).__name__}: {exc}"]})
+            print(f"  ERROR: {type(exc).__name__}: {exc}",file=sys.stderr,flush=True)
+            continue
         if not report["training_ready"]:
             failures.append({"path": str(path), "blockers": report["blockers"]})
+            print("  REJECT: "+"; ".join(report["blockers"]),file=sys.stderr,flush=True)
             continue
         digest = report["samples_sha256"]
         if digest in content_seen:
@@ -50,6 +59,7 @@ def plan_dataset(manifest, seed=42, train_only=False):
         if not {"front", "wrist"}.issubset(meta.get("cameras", {})):
             raise ValueError(f"Current single-arm profile requires front and wrist cameras: {path}")
         checked.append({**entry, "path":str(path), "audit":report, "prompt":tasks[entry["task_id"]]["prompt"]})
+        print("  PASS",file=sys.stderr,flush=True)
     if failures:
         raise ValueError("Rejected captures; no dataset written:\n"+json.dumps(failures,ensure_ascii=False,indent=2))
     if train_only:

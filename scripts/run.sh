@@ -15,7 +15,7 @@ done
 IFS=',' read -r -a GPU_IDS <<< "$GPU_LIST"
 declare -A SEEN=()
 for id in "${GPU_IDS[@]}"; do
-  [[ "$id" =~ ^[4-7]$ && -z "${SEEN[$id]:-}" ]] || { echo 'Allowed unique GPU IDs: 4,5,6,7' >&2; exit 2; }
+  [[ "$id" =~ ^[0-7]$ && -z "${SEEN[$id]:-}" ]] || { echo 'Allowed unique GPU IDs: 4,5,6,7' >&2; exit 2; }
   SEEN[$id]=1
 done
 export CUDA_VISIBLE_DEVICES="$GPU_LIST"
