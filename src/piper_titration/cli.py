@@ -27,6 +27,10 @@ def main():
     sub.add_argument("raw")
     sub.add_argument("--repo-id", default="local/piper_titration")
     commands.add_parser("norms")
+    commands.add_parser("norm-check")
+    sub = commands.add_parser("coordinate-check")
+    sub.add_argument("episode")
+    sub.add_argument("--output",required=True)
     for name in ("capture-plan", "convert-captures"):
         sub = commands.add_parser(name)
         sub.add_argument("manifest")
@@ -65,7 +69,15 @@ def main():
         result = inspect(**{k: cfg["paths"][k] for k in ("sim_python", "train_python", "openpi_root", "checkpoint", "piper_root")}, render=args.render, training_only="robot" in cfg and not args.render)
         print(json.dumps(result, indent=2))
         return int(any(not r["ok"] for r in result.values()))
-    if args.command in ("capture-plan", "convert-captures"):
+    if args.command == "coordinate-check":
+        from pathlib import Path
+        from .norm_audit import coordinate_episode
+        report = coordinate_episode(args.episode,cfg["robot"],cfg["training"]["action_horizon"])
+        output = Path(args.output)
+        output.parent.mkdir(parents=True,exist_ok=True)
+        output.write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding="utf-8")
+        print(json.dumps(report,ensure_ascii=False,indent=2))
+    elif args.command in ("capture-plan", "convert-captures"):
         if "robot" not in cfg:
             p.error("Capture commands require configs/chemical_server.json")
         from .capture_dataset import plan_dataset, convert_captures

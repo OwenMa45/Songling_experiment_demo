@@ -9,6 +9,10 @@ spec.loader.exec_module(m)
 
 
 class RemoteLauncherTests(unittest.TestCase):
+    def test_default_identity(self):
+        command, _ = m.build(m.parser().parse_args(['doctor']))
+        self.assertEqual(command[command.index('-i')+1], '/home/lzk/.ssh/id_ed25519')
+
     def test_smoke_and_existing_receipt(self):
         args=m.parser().parse_args(['smoke','--identity','/keys/my key','--experiment','check'])
         cmd,script=m.build(args)

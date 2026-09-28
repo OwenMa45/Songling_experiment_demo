@@ -46,12 +46,18 @@ def configuration(cfg, steps=None):
         def create(self, assets_dirs, model_config):
             delta_mask = t.make_bool_mask(6, -1) if single else t.make_bool_mask(6, -1, 6, -1)
             mapping = t.Group(inputs=[Inputs()], outputs=[Outputs()]).push(inputs=[t.DeltaActions(delta_mask)], outputs=[t.AbsoluteActions(delta_mask)])
+            if single:
+                from .single_arm import data_transforms
+                mapping = data_transforms()
             return dataclasses.replace(self.create_base_config(assets_dirs, model_config), repack_transforms=t.Group(inputs=[t.RepackTransform({"state": "state", "image": "image", "wrist_image": "wrist_image", "actions": "actions", "prompt": "prompt"})]), data_transforms=mapping, model_transforms=c.ModelTransformFactory()(model_config), prompt_from_task=True)
 
     training = cfg["training"]
     model = Pi0Config(pi05=True, action_horizon=training["action_horizon"], paligemma_variant="gemma_2b_lora", action_expert_variant="gemma_300m_lora")
     output = Path(cfg["paths"]["output"])
     metadata = {"action_schema":cfg["robot"]["schema"], "action_dim":7, "control_hz":cfg["robot"]["control_hz"]} if single else {"action_schema":"piper-titration-v1","action_dim":14,"control_hz":cfg["simulation"]["control_hz"]}
+    if single:
+        from .single_arm import coordinate_contract
+        metadata["coordinate_contract"] = coordinate_contract(cfg["robot"],training["action_horizon"])
     return c.TrainConfig(name="pi05_piper_chemical_lora" if single else "pi05_piper_lora", exp_name=training["experiment"], model=model, freeze_filter=model.get_freeze_filter(), ema_decay=None, data=PiperData(repo_id=training["repo_id"]), weight_loader=weight_loaders.CheckpointWeightLoader(str(Path(cfg["paths"]["checkpoint"])/"params")), batch_size=training["batch_size"], fsdp_devices=training.get("fsdp_devices",1), num_workers=0, num_train_steps=steps or training["steps"], save_interval=1000, log_interval=1 if steps else 100, wandb_enabled=False, assets_base_dir=str(output/"training_assets"), checkpoint_base_dir=str(output/"checkpoints"), seed=training["seed"], policy_metadata=metadata)
 
 
@@ -77,16 +83,32 @@ def execute(cfg, mode, steps=None, checkpoint=None, port=8000):
             cfg.pop("robot",None)
             cfg["simulation"] = original["simulation"]
     root = attach(cfg)
-    if "robot" in cfg and mode in ("norms", "train"):
+    if "robot" in cfg and mode in ("norms", "norm-check", "train"):
         from .capture_dataset import validate_receipt
-        validate_receipt(cfg)
+        receipt = validate_receipt(cfg)
     config = configuration(cfg, steps)
     if mode == "norms":
         # Use the official computation, registering only within this process.
         from openpi.training import config as registry
-        registry._CONFIGS_DICT[config.name] = config
+        # The upstream script floors batches. Batch=1 includes every frame and
+        # makes stats independent of GPU count or the later optimization batch.
+        registry._CONFIGS_DICT[config.name] = dataclasses.replace(config,batch_size=1)
+        if "robot" in cfg:
+            from .norm_audit import binding, stamp_path
+            before = binding(cfg,config,receipt)
+            stamp_path(config).unlink(missing_ok=True)
         module(root/"scripts/compute_norm_stats.py", "piper_openpi_norms").main(config.name)
+        if "robot" in cfg:
+            from .norm_audit import finish_norms
+            print(json.dumps(finish_norms(cfg,config,receipt,before),indent=2))
+    elif mode == "norm-check":
+        from .norm_audit import check_norms
+        print(json.dumps(check_norms(cfg,config,receipt,roundtrip=True),indent=2))
     elif mode == "train":
+        norm_record = None
+        if "robot" in cfg:
+            from .norm_audit import check_norms
+            norm_record = check_norms(cfg,config,receipt,roundtrip=True)
         import jax
         validate_device_layout(config.batch_size, config.fsdp_devices, jax.device_count())
         params = Path(cfg["paths"]["checkpoint"])/"params"
@@ -101,11 +123,16 @@ def execute(cfg, mode, steps=None, checkpoint=None, port=8000):
             if config.checkpoint_dir.is_dir():
                 snapshot = copy.deepcopy(cfg)
                 snapshot["training"]["steps"] = config.num_train_steps
+                if norm_record is not None:
+                    snapshot["normalization_audit"] = norm_record
                 (config.checkpoint_dir/"piper_run.json").write_text(json.dumps(snapshot, indent=2), encoding="utf-8")
     elif mode == "serve":
         if not checkpoint or not Path(checkpoint).is_dir():
             raise ValueError("--checkpoint must point to a trained step directory containing params and assets")
         from openpi.policies.policy_config import create_trained_policy
+        if "robot" in cfg:
+            from .norm_audit import check_checkpoint
+            check_checkpoint(cfg,config,checkpoint,original.get("normalization_audit"))
         from openpi.serving.websocket_policy_server import WebsocketPolicyServer
         policy = create_trained_policy(config, checkpoint)
         WebsocketPolicyServer(policy=policy, host="127.0.0.1", port=port, metadata=config.policy_metadata).serve_forever()

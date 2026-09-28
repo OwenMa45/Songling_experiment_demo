@@ -9,20 +9,20 @@
 在发起训练的 NAS 上执行，私钥留在 NAS 本机（不要上传 Git，也无需发给助手）：
 
 ```bash
-ssh -i /你的私钥路径 lzk@10.71.106.251
+ssh -i /home/lzk/.ssh/id_ed25519 lzk@10.71.106.251
 ```
 
 首次连接核实管理员提供的主机指纹。若私钥有密码，先通过 ssh-agent/ssh-add 解锁。脚本使用 BatchMode=yes 与 StrictHostKeyChecking=yes，遇到未知主机或认证失败会停止，不跳过验证。
 
 ## 2. 诊断与单步训练
 
-在 NAS 项目目录运行；替换私钥路径：
+在 NAS 项目目录运行；默认私钥为 `/home/lzk/.ssh/id_ed25519`，可省略 `--identity`：
 
 ```bash
 cd /mnt/nas/share/home/lzk/mrq/robot/Songling_experiment_demo
-python scripts/train_remote_3090.py doctor --identity /你的私钥路径 --dry-run
-python scripts/train_remote_3090.py doctor --identity /你的私钥路径
-python scripts/train_remote_3090.py smoke --identity /你的私钥路径
+python scripts/train_remote_3090.py doctor --identity /home/lzk/.ssh/id_ed25519 --dry-run
+python scripts/train_remote_3090.py doctor --identity /home/lzk/.ssh/id_ed25519
+python scripts/train_remote_3090.py smoke --identity /home/lzk/.ssh/id_ed25519
 ```
 
 默认使用 GPU 0,1,2,3、全局 batch=4、FSDP=4、显存比例 0.9。每次 smoke/train 自动生成独立时间戳实验名，避免覆盖已有失败目录。默认配置 configs/beaker_demo.json，读取已知成功的 outputs/chemical/dataset_receipt.json、data/lerobot，复用 outputs/beaker_demo 中的归一化统计。无需重复转换或计算 norms。
@@ -30,7 +30,7 @@ python scripts/train_remote_3090.py smoke --identity /你的私钥路径
 成功完成单步更新和检查点保存后，启动正式训练：
 
 ```bash
-python scripts/train_remote_3090.py train --identity /你的私钥路径 --steps 10000
+python scripts/train_remote_3090.py train --identity /home/lzk/.ssh/id_ed25519 --steps 10000
 ```
 
 命令在前台等待并转发输出及退出状态；不会自动后台运行或重启。建议在 NAS 的 tmux 会话中执行，以免用户终端断开中断任务。3090 节点重启或 NAS 到节点 SSH 链路中断不由 tmux 恢复。日志写入远端项目 outputs/remote_logs；检查点仍在 outputs/beaker_demo/checkpoints。不要同时启动相同 GPU 上的多个训练。
@@ -41,7 +41,7 @@ python scripts/train_remote_3090.py train --identity /你的私钥路径 --steps
 
 ```bash
 python scripts/train_remote_3090.py smoke \
-  --identity /你的私钥路径 --user lzk \
+  --identity /home/lzk/.ssh/id_ed25519 --user lzk \
   --python /节点上的/songling/bin/python \
   --gpu-list 0,1 --batch-size 2 --fsdp-devices 2
 ```

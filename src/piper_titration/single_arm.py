@@ -6,6 +6,35 @@ from .transforms import rgb
 
 SCHEMA = "piper-chemical-single-v1"
 ORDER = ["q1", "q2", "q3", "q4", "q5", "q6", "gripper_width"]
+DELTA_MASK = (True, True, True, True, True, True, False)
+
+
+def coordinate_contract(robot, horizon):
+    validate_contract(robot)
+    if not isinstance(horizon,int) or isinstance(horizon,bool) or horizon < 1:
+        raise ValueError("action_horizon must be a positive integer")
+    return {
+        "version":1, "schema":SCHEMA, "state_order":ORDER,
+        "units":["rad"]*6+["m"], "control_hz":robot["control_hz"],
+        "action_horizon":horizon, "model_action_dim":32,
+        "coordinate_frame":"follower SDK joint coordinates; no Cartesian pose or base/world transform",
+        "joint_conversion":"identity: retain SDK zero/sign; no degree conversion, wrap or ALOHA remapping",
+        "gripper_conversion":"identity: signed SDK coordinate in metres; no clipping, 0..1 conversion or inversion",
+        "dataset_actions":"absolute CAN position targets",
+        "delta_mask":list(DELTA_MASK),
+        "delta_reference":"each chunk target minus the SAME observation state at chunk origin, not consecutive differences",
+        "normalization":"pi05 q01/q99 with epsilon 1e-6; after delta conversion, before 32D zero padding",
+        "policy_output":"absolute targets rad/metres; unnormalize then add request state ONCE",
+        "images":{"image":"front RGB -> base_0_rgb", "wrist_image":"wrist RGB -> right_wrist_0_rgb",
+                  "unused":"left_wrist_0_rgb masked", "resize":"224x224 aspect-preserving padding",
+                  "encoding":"uint8 HWC/CHW 0..255 or float HWC/CHW 0..1"},
+    }
+
+
+def data_transforms():
+    from openpi import transforms as t
+    return t.Group(inputs=[Inputs()], outputs=[Outputs()]).push(
+        inputs=[t.DeltaActions(DELTA_MASK)], outputs=[t.AbsoluteActions(DELTA_MASK)])
 
 
 def validate_contract(robot):

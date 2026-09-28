@@ -14,7 +14,7 @@ def parser():
     p.add_argument("--host", default="10.71.106.251")
     p.add_argument("--user", default="lzk")
     p.add_argument("--port", type=int, default=22)
-    p.add_argument("--identity", help="Private key path on the NAS launching this script; never copied")
+    p.add_argument("--identity", default="/home/lzk/.ssh/id_ed25519", help="Private key path on the NAS launching this script; never copied")
     p.add_argument("--project", default=BASE + "/Songling_experiment_demo")
     p.add_argument("--openpi", default=BASE + "/third_party/openpi")
     p.add_argument("--checkpoint", default=BASE + "/openpi_data/openpi-assets/checkpoints/pi05_base")

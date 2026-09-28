@@ -12,7 +12,11 @@ def rgb(value):
     if a.shape[-1] != 3:
         raise ValueError("Expected three RGB channels")
     if np.issubdtype(a.dtype, np.floating):
-        a = np.clip(a*255, 0, 255).astype(np.uint8)
+        if not np.isfinite(a).all() or np.any(a < 0) or np.any(a > 1):
+            raise ValueError("Float RGB must be finite in [0,1]; use uint8 for [0,255]")
+        a = (a*255).astype(np.uint8)
+    elif a.dtype != np.uint8:
+        raise ValueError("RGB must be uint8 or float [0,1]")
     return a
 
 

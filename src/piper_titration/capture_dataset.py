@@ -56,6 +56,10 @@ def plan_dataset(manifest, seed=42, train_only=False):
         meta = json.loads((path/"metadata.json").read_text(encoding="utf-8"))
         if meta.get("state_order") != ORDER:
             raise ValueError(f"Wrong coordinate order: {path}")
+        if "action_order" in meta and meta["action_order"] != ["target_"+k for k in ORDER]:
+            raise ValueError(f"Wrong action coordinate order: {path}")
+        if "task_id" in meta and meta["task_id"] != entry["task_id"]:
+            raise ValueError(f"Task label disagrees with episode metadata: {path}")
         if not {"front", "wrist"}.issubset(meta.get("cameras", {})):
             raise ValueError(f"Current single-arm profile requires front and wrist cameras: {path}")
         checked.append({**entry, "path":str(path), "audit":report, "prompt":tasks[entry["task_id"]]["prompt"]})
@@ -182,4 +186,14 @@ def validate_receipt(cfg):
             raise ValueError("Dataset moved; regenerate and validate the receipt on this machine")
         if hashlib.sha256((actual/"meta/info.json").read_bytes()).hexdigest()!=split["info_sha256"]:
             raise ValueError("Dataset metadata changed since export")
+        validate_features(json.loads((actual/"meta/info.json").read_text(encoding="utf-8")),cfg["robot"]["control_hz"])
     return receipt
+
+
+def validate_features(info, fps):
+    if info.get("fps") != fps:
+        raise ValueError("LeRobot fps differs from policy control rate")
+    for key in ("state","actions"):
+        feature = info.get("features",{}).get(key,{})
+        if feature.get("shape") != [7] or feature.get("dtype") != "float32" or feature.get("names") != ORDER:
+            raise ValueError(f"LeRobot {key} must be float32[7] in the recorded PiPER coordinate order")
