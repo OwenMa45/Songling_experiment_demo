@@ -11,7 +11,7 @@ NAS 入口：`scripts/train_two_skills.py`。复用 SSH 主机 10.71.106.251、�
 | 任务 | 配置 | 默认转换凭据 | 无凭据时的原始选择清单 |
 | --- | --- | --- | --- |
 | beaker_move | configs/beaker_demo.json | outputs/chemical/dataset_receipt.json | data/beaker_move_demo_site_A/capture_selection.json |
-| tube_pour | configs/tube_demo.json | outputs/tube_demo/dataset_receipt.json | data/tube_pour/capture_selection.json |
+| tube_pour | configs/tube_demo.json | outputs/tube_demo/dataset_receipt.json | data/tube_pour_demo_site_A/capture_selection.json |
 
 烧杯沿用已知实际转换凭据。倒液凭据位置和目录请按服务器实际情况填写，不假定已验证存在。如果两个数据集都已经转换，只需指定现有凭据，原始清单不会被读取；数据集 repo_id 必须与各自配置相符。不会自动重命名、移动、修改凭据或把两个任务合并。旧数据集特征/坐标契约不兼容时会停止，不能为避免重新转换而略过校验。
 

@@ -8,7 +8,7 @@
     },
     "tube_pour": {
       "config": "configs/tube_demo.json",
-      "manifest": "data/tube_pour/capture_selection.json",
+      "manifest": "data/tube_pour_demo_site_A/capture_selection.json",
       "receipt": "outputs/tube_demo/dataset_receipt.json",
       "accepted_task_ids": ["tube_pour", "test_tube_pour_return"]
     }

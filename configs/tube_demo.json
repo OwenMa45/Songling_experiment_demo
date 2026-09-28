@@ -1,6 +1,6 @@
 {
   "paths": {
-    "raw_data_root": "data",
+    "raw_data_root": "data/tube_pour_demo_site_A",
     "sim_python": "@current",
     "openpi_root": "/mnt/nas/share/home/lzk/mrq/robot/third_party/openpi",
     "train_python": "@current",
