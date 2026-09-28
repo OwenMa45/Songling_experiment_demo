@@ -67,7 +67,16 @@ class PreparedTests(unittest.TestCase):
             (root/'images_manifest.jsonl').write_text('\n'.join(json.dumps(e) for e in manifest))
             self.assertEqual(m.prepared_checks(root,meta,[row]),[])
             row['action_provenance']['command_oldest_part_age_ms']=1501
-            self.assertTrue(m.prepared_checks(root,meta,[row]))
+            failure=m.prepared_checks(root,meta,[row])[0]
+            self.assertIn('target_age_exceeds_cap',failure)
+            self.assertIn('"sample_index": 0',failure)
+            self.assertIn('"age_cap_ms": 1500',failure)
+            row['action_provenance']['command_oldest_part_age_ms']=1400
+            row['action_provenance']['target_part_skew_ms']=6
+            failure=m.prepared_checks(root,meta,[row])[0]
+            self.assertIn('target_part_skew_exceeds_5ms_or_negative',failure)
+            self.assertIn('age_minus_complete_disagrees_with_skew',failure)
+            row['action_provenance']['target_part_skew_ms']=1
             row['action_provenance']['command_oldest_part_age_ms']=1400
             (root/'identity').write_text('{}')
             self.assertIn('hash mismatch',m.prepared_checks(root,meta,[row])[0])

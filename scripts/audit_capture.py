@@ -74,8 +74,26 @@ def prepared_checks(root, meta, rows):
             age, complete, skew = (p[k] for k in ("command_oldest_part_age_ms","command_complete_age_ms","target_part_skew_ms"))
             if not all(isinstance(v,(int,float)) and not isinstance(v,bool) and math.isfinite(v) for v in (age,complete,skew)):
                 raise ValueError("Invalid action timing")
-            if approval not in caps or not 0 <= complete <= age <= caps[approval] or not 0 <= skew <= 5 or abs(age-complete-skew)>1e-3:
-                raise ValueError("Action timing exceeds verified bounds")
+            timing_reasons = []
+            if approval not in caps:
+                timing_reasons.append("unknown_approval")
+            if not 0 <= complete <= age:
+                timing_reasons.append("negative_or_reversed_command_ages")
+            if approval in caps and age > caps[approval]:
+                timing_reasons.append("target_age_exceeds_cap")
+            if not 0 <= skew <= 5:
+                timing_reasons.append("target_part_skew_exceeds_5ms_or_negative")
+            residual = age-complete-skew
+            if abs(residual)>1e-3:
+                timing_reasons.append("age_minus_complete_disagrees_with_skew")
+            if timing_reasons:
+                raise ValueError("Action timing exceeds verified bounds: "+json.dumps({
+                    "sample_index":i,"source_sample_index":source,"approval":approval,
+                    "command_oldest_part_age_ms":age,"command_complete_age_ms":complete,
+                    "target_part_skew_ms":skew,"age_cap_ms":caps.get(approval),
+                    "skew_cap_ms":5,"consistency_residual_ms":residual,
+                    "consistency_tolerance_ms":1e-3,"reasons":timing_reasons,
+                    "source_can_lines":p.get("source_can_lines")},ensure_ascii=False))
             if terminal and approval != "verified_terminal_sample_and_hold":
                 raise ValueError("Terminal hold is not trailing")
             terminal |= approval == "verified_terminal_sample_and_hold"

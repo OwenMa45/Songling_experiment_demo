@@ -72,6 +72,7 @@ def plan_dataset(manifest, seed=42, train_only=False):
             raise ValueError(f"Current single-arm profile requires front and wrist cameras: {path}")
         checked.append({**entry, "path":str(path), "audit":report, "prompt":tasks[entry["task_id"]]["prompt"]})
         print("  PASS",file=sys.stderr,flush=True)
+    print(f"[capture-plan summary] checked={len(entries)} passed={len(checked)} rejected={len(failures)}",file=sys.stderr,flush=True)
     if failures:
         raise ValueError("Rejected captures; no dataset written:\n"+json.dumps(failures,ensure_ascii=False,indent=2))
     if train_only:
