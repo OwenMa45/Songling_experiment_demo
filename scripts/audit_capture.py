@@ -24,6 +24,17 @@ def vector(value):
                     and math.isfinite(v) for v in value))
 
 
+def policy_revision(meta):
+    path = Path(__file__).resolve().parents[1]/"configs/hold_policy_revisions.json"
+    data = path.read_bytes()
+    revision = json.loads(data).get(meta.get("task_id"))
+    if revision is None:
+        return None
+    if meta.get("action_source_verification",{}).get("hold_behavior_sha256") != revision["basis_hold_record_sha256"]:
+        return None
+    return {**revision,"policy_file_sha256":hashlib.sha256(data).hexdigest()}
+
+
 def prepared_checks(root, meta, rows):
     """Validate v2 evidence and provenance, without certifying hardware ourselves."""
     failures = []
@@ -55,6 +66,9 @@ def prepared_checks(root, meta, rows):
         caps = {"recent_recorded_target":200.0,
                 "verified_internal_sample_and_hold":policy["max_internal_hold_ms"],
                 "verified_terminal_sample_and_hold":policy["max_terminal_hold_ms"]}
+        revision = policy_revision(meta)
+        if revision is not None:
+            caps["verified_internal_sample_and_hold"] = revision["max_internal_hold_ms"]
         if not all(isinstance(v,(int,float)) and not isinstance(v,bool) and math.isfinite(v) and 0 < v <= empirical for v in caps.values()):
             raise ValueError("Invalid hold thresholds")
         if meta.get("action_source_verified") is not True or meta["action_source_verification"].get("no_future_state_as_action") is not True:
@@ -278,7 +292,8 @@ def audit(root, decode_images=False):
               "metadata_sha256":hashlib.sha256(meta_path.read_bytes()).hexdigest(),
               "samples_sha256":hashlib.sha256(samples_path.read_bytes()).hexdigest(),
               "blockers":blockers,"warnings":warnings,"training_ready":not blockers,
-              "review_scope":"structural audit; image content and physical source need separate human verification"}
+              "review_scope":"structural audit; image content and physical source need separate human verification",
+              "hold_policy_revision":policy_revision(meta) if meta.get("format")=="piper_x_single_arm_prepared_v2" else None}
     return report
 
 

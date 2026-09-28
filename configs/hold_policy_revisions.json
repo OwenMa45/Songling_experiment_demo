@@ -1,0 +1,8 @@
+{
+  "tube_pour": {
+    "revision": "tube_pour_internal_hold_1500ms_v1",
+    "basis_hold_record_sha256": "0b884a605817f95fca7a2394d2347e00efb890dd79f394b1d4bf1a8881dd626a",
+    "max_internal_hold_ms": 1500.0,
+    "reason": "User confirmed longer internal holds are verified and required for tube pouring. Supplied 50-episode summary has maximum internal age 1334.780734 ms; referenced hardware verification declares 2425.403118133545 ms. This is a dataset acceptance policy revision, not a new hardware measurement. Terminal and all other checks remain unchanged."
+  }
+}

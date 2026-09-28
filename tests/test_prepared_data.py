@@ -66,6 +66,13 @@ class PreparedTests(unittest.TestCase):
                 manifest.append({'sample_index':0,'camera':camera,'prepared_path':camera,'sha256':digest(camera)})
             (root/'images_manifest.jsonl').write_text('\n'.join(json.dumps(e) for e in manifest))
             self.assertEqual(m.prepared_checks(root,meta,[row]),[])
+            row['action_provenance']['approval']='verified_internal_sample_and_hold'
+            self.assertIn('target_age_exceeds_cap',m.prepared_checks(root,meta,[row])[0])
+            with patch.object(m,'policy_revision',return_value={'max_internal_hold_ms':1500}):
+                self.assertEqual(m.prepared_checks(root,meta,[row]),[])
+            with patch.object(m,'policy_revision',return_value={'max_internal_hold_ms':2500}):
+                self.assertIn('Invalid hold thresholds',m.prepared_checks(root,meta,[row])[0])
+            row['action_provenance']['approval']='verified_terminal_sample_and_hold'
             row['action_provenance']['command_oldest_part_age_ms']=1501
             failure=m.prepared_checks(root,meta,[row])[0]
             self.assertIn('target_age_exceeds_cap',failure)
