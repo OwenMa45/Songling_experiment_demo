@@ -13,6 +13,33 @@ spec.loader.exec_module(m)
 
 
 class PreparedTests(unittest.TestCase):
+    def test_tube_prompt_reaches_training_plan(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            (root/'metadata.json').write_text(json.dumps({'task_id':'tube_pour','state_order':['q1','q2','q3','q4','q5','q6','gripper_width'],'cameras':{'front':'f','wrist':'w'}}))
+            (root/'samples.jsonl').write_text('{}\n')
+            manifest=root/'selection.json'
+            manifest.write_text(json.dumps({'episodes':[{'path':'.','task_id':'tube_pour','group':'demo_site_A'}]}))
+            with patch('piper_titration.capture_dataset.audit_episode',return_value={'training_ready':True,'samples_sha256':'test'}):
+                entry=plan_dataset(manifest,train_only=True)['train'][0]
+            self.assertEqual(entry['task_id'],'tube_pour')
+            self.assertEqual(entry['prompt'],'Pick up the tube filled with water, place it near above the beaker and pour the water, then place the tube back')
+
+    def test_bad_labels_report_values_before_auditing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            (root/'metadata.json').write_text('{}')
+            (root/'samples.jsonl').write_text('{}\n')
+            manifest=root/'selection.json'
+            manifest.write_text(json.dumps({'episodes':[{'path':'.','task_id':'tube_demo','group':''}]}))
+            with patch('piper_titration.capture_dataset.audit_episode') as audit:
+                with self.assertRaises(ValueError) as error:
+                    plan_dataset(manifest,train_only=True)
+                audit.assert_not_called()
+            self.assertIn("unknown_task_id: 'tube_demo'",str(error.exception))
+            self.assertIn('invalid_collection_group',str(error.exception))
+            self.assertIn('test_tube_pour_return',str(error.exception))
+
     def test_evidence_hash_and_hold_bounds(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp)

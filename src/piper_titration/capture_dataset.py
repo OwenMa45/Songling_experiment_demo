@@ -37,8 +37,16 @@ def plan_dataset(manifest, seed=42, train_only=False):
             failures.append({"path":str(path),"blockers":["episode_files_missing"]})
             print("  REJECT: episode_files_missing",file=sys.stderr,flush=True)
             continue
-        if entry.get("task_id") not in tasks or not isinstance(entry.get("group"), str) or not entry["group"].strip():
-            raise ValueError("Each episode requires a known task_id and a collection-session/scene group")
+        label_errors = []
+        task_id, group = entry.get("task_id"), entry.get("group")
+        if not isinstance(task_id,str) or task_id not in tasks:
+            label_errors.append(f"unknown_task_id: {task_id!r}; allowed: {', '.join(tasks)}")
+        if not isinstance(group,str) or not group.strip():
+            label_errors.append(f"invalid_collection_group: {group!r}; expected non-empty real session/scene label")
+        if label_errors:
+            failures.append({"path":str(path),"blockers":label_errors})
+            print("  REJECT: "+"; ".join(label_errors),file=sys.stderr,flush=True)
+            continue
         try:
             report = audit_episode(path)
         except (OSError,ValueError,KeyError,TypeError) as exc:

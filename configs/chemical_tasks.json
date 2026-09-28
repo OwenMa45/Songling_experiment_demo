@@ -6,6 +6,7 @@
   "split_per_task": {"train": 160, "validation": 20, "test": 20},
   "split_group": "collection_session_and_initial_scene",
   "tasks": [
+    {"id": "tube_pour", "priority": "required", "prompt": "Pick up the tube filled with water, place it near above the beaker and pour the water, then place the tube back", "success": "Water poured into the beaker without visible spill and the tube returned stably to its original rack slot."},
     {"id": "beaker_move", "priority": "required", "prompt": "Pick up the empty beaker and place it upright in the marked target area.", "success": "Beaker released upright inside the target area without dropping it."},
     {"id": "test_tube_pour_return", "priority": "required", "prompt": "Pick up the test tube, pour its liquid into the designated container, and return it to the rack.", "success": "Liquid transferred into the designated container without visible spill and test tube returned stably to its original slot."},
     {"id": "dropper_aspirate_dispense", "priority": "exploratory", "prompt": "Aspirate liquid with the dropper and dispense it into the designated container.", "success": "Visible liquid uptake followed by dispensing into the designated container; grasping or moving alone is insufficient."},
