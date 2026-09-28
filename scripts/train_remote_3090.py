@@ -37,7 +37,7 @@ def parser():
     return p
 
 
-def build(args):
+def build(args, worker_command=None):
     ids = args.gpu_list.split(",")
     if not ids or len(set(ids)) != len(ids) or any(i not in ("0", "1", "2", "3") for i in ids):
         raise ValueError("3090 GPU list must contain unique IDs from 0,1,2,3")
@@ -81,6 +81,8 @@ def build(args):
     command = invoke + (["train", "--steps", str(1 if args.mode=="smoke" else args.steps),
                          "--batch-size", str(args.batch_size), "--fsdp-devices", str(args.fsdp_devices),
                          "--experiment", experiment] if args.mode in ("smoke", "train") else [args.mode])
+    if worker_command is not None:
+        command = runner + worker_command
     if args.mode != "doctor":
         script += ["test -f " + q(remote(args.receipt)), shlex.join(invoke+["doctor"])]
     script += [shlex.join(command)+" 2>&1 | tee -- "+q(log)]

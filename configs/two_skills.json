@@ -1,0 +1,16 @@
+{
+  "tasks": {
+    "beaker_move": {
+      "config": "configs/beaker_demo.json",
+      "manifest": "data/beaker_move_demo_site_A/capture_selection.json",
+      "receipt": "outputs/chemical/dataset_receipt.json",
+      "accepted_task_ids": ["beaker_move"]
+    },
+    "tube_pour": {
+      "config": "configs/tube_demo.json",
+      "manifest": "data/tube_pour/capture_selection.json",
+      "receipt": "outputs/tube_demo/dataset_receipt.json",
+      "accepted_task_ids": ["tube_pour", "test_tube_pour_return"]
+    }
+  }
+}
