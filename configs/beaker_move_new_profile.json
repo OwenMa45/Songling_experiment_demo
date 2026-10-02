@@ -1,0 +1,10 @@
+{
+  "tasks": {
+    "beaker_move_new": {
+      "config": "configs/beaker_move_new.json",
+      "manifest": "data/beaker_new/capture_selection.json",
+      "receipt": "outputs/beaker_move_new/dataset_receipt.json",
+      "accepted_task_ids": ["beaker_move_new"]
+    }
+  }
+}

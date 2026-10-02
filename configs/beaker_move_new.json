@@ -1,0 +1,26 @@
+{
+  "paths": {
+    "raw_data_root": "data/beaker_new",
+    "sim_python": "@current",
+    "openpi_root": "/mnt/nas/share/home/lzk/mrq/robot/third_party/openpi",
+    "train_python": "@current",
+    "checkpoint": "/mnt/nas/share/home/lzk/mrq/robot/openpi_data/openpi-assets/checkpoints/pi05_base",
+    "piper_root": "third_party/piper_ros",
+    "output": "outputs/beaker_move_new",
+    "dataset_receipt": "outputs/beaker_move_new/dataset_receipt.json"
+  },
+  "robot": {
+    "schema": "piper-chemical-single-v1",
+    "action_dim": 7,
+    "control_hz": 30
+  },
+  "training": {
+    "repo_id": "local/piper_beaker_move_new_train",
+    "batch_size": 4,
+    "fsdp_devices": 4,
+    "action_horizon": 16,
+    "steps": 10000,
+    "experiment": "beaker_move_new",
+    "seed": 42
+  }
+}

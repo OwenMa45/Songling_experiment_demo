@@ -123,7 +123,7 @@ def main():
     p.description = __doc__
     # Positional mode is still supplied internally as doctor, not user-facing.
     p.add_argument("--stage",choices=("prepare","smoke","train","all"),default="smoke")
-    p.add_argument("--task",choices=("both","beaker_move","tube_pour"),default="both")
+    p.add_argument("--task",choices=("both","beaker_move","beaker_move_new","tube_pour"),default="both")
     p.add_argument("--profile",default="configs/two_skills.json")
     p.add_argument("--worker",action="store_true",help=argparse.SUPPRESS)
     args = p.parse_args(["doctor"]+sys.argv[1:])
