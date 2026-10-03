@@ -62,3 +62,19 @@ outputs/beaker_move_new/checkpoints/pi05_piper_chemical_lora/beaker_move_new_tra
 - 退出码：`outputs/beaker_move_new/pipeline_20261002_144346/exit_code`，进程退出后生成。
 
 该流程会依次完成转换、归一化、smoke 和正式训练，失败即停；不要重复启动同一个数据集的转换。此处记录的是启动信息，最终结果以 run.json 中的 completed 状态、正式 train_checkpoint 和退出码 0 为准。
+
+## 2026-10-03 归一化修复与续跑
+
+上一轮 228 条回合全部通过审核，数据转换成功，因果重采样后为 92662 帧。首次 `norm-check` 报缺少 `piper_norm_audit.json`，属于新数据集的预期情况，编排随后尝试计算统计。
+
+实际中断在 `norms` 的第一个 batch：统计使用 batch=1 以覆盖所有帧，但上游加载器默认在全部 4 个 JAX GPU 设备上分片，导致 `(1,16,7)` 首维无法被 4 整除。未进入 smoke 或正式训练，也未成功生成归一化统计。
+
+修复在 CLI 导入项目/openpi 模块前为 `norms` 进程设置 `JAX_PLATFORMS=cpu`，保持 batch=1、全量统计和既有坐标审计。后续训练是独立进程，继续使用 4×3090、batch=4、FSDP=4。新增进程级回归测试已在训练服务器通过：原报错形状可放置到 CPU，训练命令保留请求的 GPU 后端。
+
+已复用现有 receipt 启动续跑，不重新导出数据：
+
+- tmux：`beaker_move_new_normfix_20261003_023521`
+- 日志：`outputs/remote_logs/beaker_move_new_normfix_20261003_023521.log`
+- 启动记录与退出码：`outputs/beaker_move_new/pipeline_20261003_023521/`
+
+本次直接使用 songling 的 Python，避开无关的 Conda libmamba 插件启动告警。旧失败目录保留。最终完成与否仍以本次 run.json、正式检查点及退出码为准。

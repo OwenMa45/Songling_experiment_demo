@@ -46,6 +46,13 @@ def main():
     sub.add_argument("--checkpoint", required=True)
     sub.add_argument("--port", type=int, default=8000)
     args = p.parse_args()
+    if args.command == "norms":
+        # Norms use batch=1 to include every frame. The upstream loader shards
+        # across all default JAX devices, so run this CLI process on CPU before
+        # any project/openpi import can initialize JAX. Training is a separate
+        # process and keeps its original GPU visibility and FSDP configuration.
+        os.environ["JAX_PLATFORMS"] = "cpu"
+        print("Computing normalization on CPU with batch=1 (all frames).", flush=True)
     if sys.platform.startswith("linux"):
         os.environ.setdefault("MUJOCO_GL", "egl")
     from .config import load

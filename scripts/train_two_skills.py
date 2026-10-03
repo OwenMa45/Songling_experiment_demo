@@ -94,7 +94,9 @@ def worker(args):
             record["repo_id"] = cfg["training"]["repo_id"]
             record["receipt"] = str(receipt_path)
             if prepare:
+                print("Checking existing normalization; a new dataset has no norm audit yet.",flush=True)
                 if call("norm-check",check=False):
+                    print("Normalization is missing or invalid; computing fresh statistics before training.",flush=True)
                     call("norms")
             call("norm-check")
             modes = ["smoke","train"] if args.stage == "all" else ([args.stage] if args.stage in ("smoke","train") else [])
