@@ -78,3 +78,17 @@ outputs/beaker_move_new/checkpoints/pi05_piper_chemical_lora/beaker_move_new_tra
 - 启动记录与退出码：`outputs/beaker_move_new/pipeline_20261003_023521/`
 
 本次直接使用 songling 的 Python，避开无关的 Conda libmamba 插件启动告警。旧失败目录保留。最终完成与否仍以本次 run.json、正式检查点及退出码为准。
+
+## 2026-10-03 检查点内存修复后重新训练
+
+归一化修复后的训练在保存第 1000 步时被 Linux global OOM 杀死（PID 174296，anon-rss 约 39.4 GiB）。该步仅有 Orbax 临时目录，未用作恢复点。
+
+项目训练适配层现在使用同步检查点保存，并对 params 和 train_state 的 PyTree handler 分别设置 `save_concurrent_gb=2`，降低写入并发及保存与计算重叠造成的内存压力。保持上游文件、参数和训练状态格式不变；真实 composite 保存/恢复回归测试已通过。这不是整个训练进程的 4 GB 内存上限，也不保证消除共享主机的所有 OOM 风险。
+
+17:54（北京时间）启动新流程，复用数据与归一化，先验证完整模型单步保存，再从基础权重开始 10000 步正式训练：
+
+- tmux：`beaker_move_new_memfix_20261003_095418`
+- 日志：`outputs/remote_logs/beaker_move_new_memfix_20261003_095418.log`
+- 启动记录与退出码：`outputs/beaker_move_new/pipeline_20261003_095418/`
+
+失败目录保留，不把临时检查点重命名为完成检查点；新模型完成状态以此次运行记录为准。

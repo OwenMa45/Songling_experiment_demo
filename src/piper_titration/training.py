@@ -117,7 +117,18 @@ def execute(cfg, mode, steps=None, checkpoint=None, port=8000):
         if config.checkpoint_dir.exists():
             raise FileExistsError(f"Choose a new training.experiment: {config.checkpoint_dir}")
         try:
-            module(root/"scripts/train.py", "piper_openpi_train").main(config)
+            trainer = module(root/"scripts/train.py", "piper_openpi_train")
+            from types import SimpleNamespace
+            from .checkpointing import initialize_checkpoint_dir
+            # Keep pinned upstream files unchanged. Only this training module
+            # uses bounded synchronous writes; inference format is unchanged.
+            trainer._checkpoints = SimpleNamespace(
+                initialize_checkpoint_dir=initialize_checkpoint_dir,
+                save_state=trainer._checkpoints.save_state,
+                restore_state=trainer._checkpoints.restore_state,
+            )
+            print("Checkpoint writes: synchronous, 2 GB concurrency per params/train_state handler.", flush=True)
+            trainer.main(config)
         finally:
             # Also retain the config if a run fails after producing an intermediate checkpoint.
             if config.checkpoint_dir.is_dir():
